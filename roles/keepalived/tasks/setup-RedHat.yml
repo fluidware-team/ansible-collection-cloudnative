@@ -1,0 +1,10 @@
+---
+- name: RedHat not supported
+  ansible.builtin.debug:
+    msg:
+      - RedHat not (yet?) supported
+
+- name: RedHat not supported
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family != 'RedHat'

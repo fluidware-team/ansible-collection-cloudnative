@@ -1,0 +1,29 @@
+global_defs {
+  default_interface {{ keepalived_interface }}
+}
+
+vrrp_instance VI_1 {
+  interface {{ keepalived_interface }}
+
+  state {{ keepalived_state }}
+  virtual_router_id {{ keepalived_virtual_router_id }}
+  priority {{ keepalived_priority }}
+{% if keepalived_nopreempt %}
+  nopreempt
+{% endif %}
+
+  unicast_peer {
+{% for peer_ip in keepalived_peers %}
+    {{ peer_ip }}
+{% endfor %}
+  }
+
+  virtual_ipaddress {
+    {{ keepalived_virtual_ip }}
+  }
+
+  authentication {
+    auth_type AH
+    auth_pass {{ keepalived_password }}
+  }
+}
