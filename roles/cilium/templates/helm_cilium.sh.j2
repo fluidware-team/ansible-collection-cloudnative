@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+/usr/local/bin/helm ${1:-install} \
+  cilium cilium/cilium \
+  --version {{ cilium_version }} \
+  --set ipam.mode=kubernetes \
+  --set k8s.requireIPv4PodCIDR=true \
+{% if cilium_network_interface %}
+  --set daemon.device={{ cilium_network_interface }} \
+{% endif %}
+{% if cilium_kube_proxy_replacement %}
+  --set kubeProxyReplacement={{ cilium_kube_proxy_replacement }} \
+{% if cilium_kube_proxy_replacement == 'strict' %}
+  --set k8sServiceHost={{ cilium_k8s_api_server_ip }} \
+  --set k8sServicePort={{ cilium_k8s_api_server_port }} \
+{% endif %}
+{% endif %}
+  --namespace {{ cilium_namespace }}
