@@ -1,0 +1,61 @@
+---
+- name: check if helm is present
+  ansible.builtin.stat:
+    path: /usr/local/bin/helm
+  register: helm_stat
+
+- name: get helm version
+  ansible.builtin.command: /usr/local/bin/helm version --template="{{ '{{' }} .Version {{ '}}' }}"
+  register: get_helm_current_version
+  changed_when: false
+  ignore_errors: true
+  when: helm_stat is defined and
+    helm_stat.stat is defined and
+    helm_stat.stat.exists
+
+- name: set current version as fact
+  ansible.builtin.set_fact:
+    helm_current_version: "{{ get_helm_current_version.stdout }}"
+  when: get_helm_current_version is succeeded
+    and get_helm_current_version.stdout is defined
+
+- name: download and install helm
+  block:
+    - name: create download tempdir
+      ansible.builtin.tempfile:
+        state: directory
+      register: create_tempdir
+    - name: debug
+      ansible.builtin.debug:
+        var: create_tempdir
+    - name: download helm
+      block:
+        - name: download archive
+          ansible.builtin.get_url:
+            url: "{{ helm_asset_url }}"
+            dest: "{{ create_tempdir.path }}"
+            checksum: "sha256:{{ helm_sha256sum }}"
+          register: download_archive
+        - name: extract archive
+          ansible.builtin.unarchive:
+            src: "{{ download_archive.dest }}"
+            dest: "{{ create_tempdir.path }}"
+            remote_src: true
+        - name: copy helm
+          ansible.builtin.copy:
+            src: "{{ create_tempdir.path }}/{{ helm_os }}-{{ helm_arch }}/helm"
+            dest: "/usr/local/bin/"
+            mode: 0755
+            remote_src: true
+
+      always:
+        - name: wipe download tempdir
+          ansible.builtin.file:
+            path: "{{ create_tempdir.path }}"
+            state: absent
+  when: helm_stat is undefined or
+    helm_stat.stat is undefined or
+    not helm_stat.stat.exists or (
+      helm_current_version is defined and
+      helm_current_version !=  helm_version
+    )
