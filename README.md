@@ -1,9 +1,11 @@
 # Fluidware Cloud Native Collection for Ansible
 
 <!-- Add CI and code coverage badges here. Samples included below. -->
-[![CI](https://github.com/fluidware-team/ansible-collection-cloudnativeworkflows/CI/badge.svg?event=push)](https://github.com/fluidware-team/ansible-collection-cloudnativeactions) [![Codecov](https://img.shields.io/codecov/c/github/ansible-collections/REPONAMEHERE)](https://codecov.io/gh/ansible-collections/REPONAMEHERE)
+[![CI](https://github.com/fluidware-team/ansible-collection-cloudnative/workflows/CI/badge.svg?event=push)](https://github.com/fluidware-team/ansible-collection-cloudnative/actions) [![Codecov](https://img.shields.io/codecov/c/github/fluidware-team/ansible-collection-cloudnative)](https://codecov.io/gh/fluidware-team/ansible-collection-cloudnative)
 
 <!-- Describe the collection and why a user would want to use it. What does the collection do? -->
+
+This collection includes helpful Ansible roles and content to help with Cloud Native tools automation (i.e CRI and CNI).
 
 ## Code of Conduct
 
