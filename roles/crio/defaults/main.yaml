@@ -1,0 +1,16 @@
+---
+crio_version: 1.23
+
+crio_os_version_mapping:
+  Ubuntu:
+    '20.04': 'xUbuntu_20.04'
+    '18.04': 'xUbuntu_18.04'
+
+crio_os: "{{ crio_os_version_mapping[ansible_distribution][ansible_distribution_version] | default('unsupported') }}"
+
+crio_libcontainers_key_url: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/{{ crio_os }}/Release.key"
+crio_libcontainers_crio_key_url: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/{{ crio_version }}/{{ crio_os }}/Release.key"
+
+crio_libcontainers_path: /usr/share/keyrings
+
+crio_key_cache_path: /root/.crio-cache
