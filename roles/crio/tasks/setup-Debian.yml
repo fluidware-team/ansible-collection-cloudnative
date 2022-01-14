@@ -1,0 +1,68 @@
+---
+- name: check if cri-o can be installed
+  ansible.builtin.assert:
+    that:
+      - crio_os != 'unsupported'
+
+- name: Ensure versions of Docker /runc  are not installed.
+  package:
+    name:
+      - docker
+      - docker-engine
+      - runc
+    state: absent
+
+- name: Create libcontainers directory
+  ansible.builtin.file:
+    path: "{{ crio_libcontainers_path }}"
+    state: directory
+    mode: 0755
+
+- name: create cache dir
+  ansible.builtin.file:
+    path: "{{ crio_key_cache_path }}"
+    state: directory
+    mode: 0755
+  register: create_cachedir
+
+- name: Download libcontainers key
+  ansible.builtin.get_url:
+    url: "{{ crio_libcontainers_key_url }}"
+    dest: "{{ crio_key_cache_path }}/Release.key"
+  register: repo_key_file
+
+- name: dearmor libcontainers key
+  ansible.builtin.shell:  >
+    gpg --batch --dearmor -o {{ crio_libcontainers_path }}/libcontainers-archive-keyring.gpg {{ create_cachedir.path }}/Release.key
+  args:
+    warn: false
+  when: repo_key_file.changed
+
+- name: Add libcontainers repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/libcontainers-archive-keyring.gpg] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/{{ crio_os }}/ /"
+    state: present
+
+- name: Download libcontainers crio key
+  ansible.builtin.get_url:
+    url: "{{ crio_libcontainers_crio_key_url }}"
+    dest: "{{ crio_key_cache_path }}/Release_crio.key"
+  register: repo_key_file
+
+- name: dearmor libcontainers crio key
+  ansible.builtin.shell:  >
+    gpg --batch --dearmor -o {{ crio_libcontainers_path }}/libcontainers-crio-archive-keyring.gpg {{ crio_key_cache_path }}/Release_crio.key
+  args:
+    warn: false
+  when: repo_key_file.changed
+
+- name: Add libcontainers crio repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/usr/share/keyrings/libcontainers-crio-archive-keyring.gpg] https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable:/cri-o:/{{ crio_version }}/{{ crio_os }}/ /"
+    state: present
+- name: ensure package are present
+  ansible.builtin.package:
+    name:
+      - cri-o
+      - cri-o-runc
+    state: present
