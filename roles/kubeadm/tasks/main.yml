@@ -1,0 +1,95 @@
+---
+- name: ensure variables are set when installing multi master
+  ansible.builtin.assert:
+    that:
+      - k8s_certificate_key is defined
+      - k8s_certificate_key | length == 64
+      - k8s_certificate_key is match('^[a-f0-9]*$')
+  when: k8s_master_nodes | length > 1
+
+- name: ensure br_netfilter is loaded
+  community.general.modprobe:
+    name: br_netfilter
+    state: present
+
+- name: ensure br_netfilter is loaded at boot
+  ansible.builtin.copy:
+    content: |
+      # This file create by kubeadm role
+      br_netfilter
+    dest: /etc/modules-load.d/br_netfilter.conf
+    mode: 0644
+
+- name: ensure ip_forward is on
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: yes
+    state: present
+    reload: yes
+
+- include_tasks: setup-cgroup.yml
+
+- include_tasks: setup-RedHat.yml
+  when: ansible_os_family == 'RedHat'
+
+- include_tasks: setup-Debian.yml
+  when: ansible_os_family == 'Debian'
+
+# TODO: replace with a template
+- name: configure kubelet extra args
+  ansible.builtin.copy:
+    content: |
+      # This file is created by kubeadm role
+      KUBELET_EXTRA_ARGS=--resolv-conf /run/systemd/resolve/resolv.conf {{ k8s_kubelet_extra_args }}
+    dest: /etc/default/kubelet
+    mode: 0644
+  register: kubelet_extra_args
+
+- name: restart kubelet
+  ansible.builtin.systemd:
+    state: restarted
+    name: kubelet
+  when: kubelet_extra_args is changed
+
+- name: initialize cluster
+  block:
+    - include_tasks: master-setup.yml
+      when: ansible_hostname == k8s_master_nodes[0]
+
+    - name: Get the kubeadm join command from the Kubernetes master.
+      ansible.builtin.command: >
+        kubeadm token create --print-join-command
+      changed_when: false
+      register: k8s_join_command_result
+      when: ansible_hostname == k8s_master_nodes[0]
+
+    - name: Set the kubeadm join command globally.
+      ansible.builtin.set_fact:
+        k8s_join_command: >-
+          {{ k8s_join_command_result.stdout }}
+          {{ k8s_join_command_extra_opts }}
+      when: k8s_join_command_result.stdout is defined
+      delegate_to: "{{ item }}"
+      delegate_facts: true
+      with_items: "{{ k8s_worker_nodes + k8s_master_nodes }}"
+
+    - include_tasks: controlplanes-setup.yml
+      when: ansible_hostname in k8s_master_nodes and 
+        ansible_hostname != k8s_master_nodes[0]
+
+    - name: join worker to Kubernetes master
+      ansible.builtin.shell: >
+        test -e /etc/kubernetes/kubelet.conf ||
+          {{ k8s_join_command }}
+      register: join_worker_result
+      changed_when: "'' !=  join_worker_result.stdout"
+      when: ansible_hostname in k8s_worker_nodes
+
+    # TODO: check if coredns is running on master, and if so execute:
+    # kubectl -n kube-system rollout restart deployment coredns
+
+    # to test dns:
+    # kubectl apply -f https://k8s.io/examples/admin/dns/dnsutils.yaml
+    # kubectl exec -i -t dnsutils -- nslookup kube-dns.kube-system
+  when: k8s_skip_setup is not defined or not k8s_skip_setup

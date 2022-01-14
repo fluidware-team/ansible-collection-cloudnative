@@ -1,0 +1,39 @@
+---
+k8s_repo_key_url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+k8s_keyring_gpg: kubernetes-archive-keyring.gpg
+k8s_keyrings_path: "/usr/share/keyrings/{{ k8s_keyring_gpg }}"
+
+k8s_allow_pods_on_master: false
+
+# Virtual IP or FQDN that resolves to it, in HA scenario
+# k8s_control_plane_endpoint:
+
+# default to the one configured by cri-o package
+k8s_pods_cidr: 10.85.0.0/16
+k8s_services_cidr: 10.86.0.0/16
+
+k8s_network_interface: eth0
+
+k8s_cluster_dnsdomain: cluster.local
+
+k8s_master_nodes: []
+k8s_worker_nodes: []
+
+k8s_join_command_extra_opts: ''
+
+k8s_kubelet_extra_args: ''
+
+k8s_kubernetes_version: 1.23.1
+
+k8s_kube_proxy_use_ipvs: false
+
+k8s_apiserver_cert_extra_sans: []
+
+k8s_without_kube_proxy: false
+
+k8s_install_keepalived: false
+
+################################################
+### to provision cni plugin, set k8s_cni_plugin
+### k8s_cni_plugin admitted values: calico | cilium
+# k8s_cni_plugin: ''
