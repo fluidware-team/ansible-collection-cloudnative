@@ -1,0 +1,49 @@
+---
+- name: Check if Kubernetes has already been initialized.
+  stat:
+    path: /etc/kubernetes/admin.conf
+  register: k8s_init_stat
+
+- name: Ensure .kube directory exists.
+  ansible.builtin.file:
+    path: ~/.kube
+    state: directory
+    mode: 0700
+
+- name: Initialize Kubernetes master if needed
+  block:
+    - name: render kubeadmin-config
+      ansible.builtin.template:
+        src: kubeadmin-config.yml.j2
+        dest: ~/.kube/.kubeadmin-config.yml
+        mode: 0644
+
+    - name: Initialize Kubernetes master with kubeadm init
+      ansible.builtin.command: >
+        kubeadm init --config ~/.kube/.kubeadmin-config.yml {{ '--upload-certs' if k8s_master_nodes | length > 1 else '' }}
+      register: kubeadmin_init
+  when: not k8s_init_stat.stat.exists
+
+- name: Symlink the kubectl admin.conf to ~/.kube/conf.
+  ansible.builtin.file:
+    src: /etc/kubernetes/admin.conf
+    dest: ~/.kube/config
+    state: link
+    mode: 0600
+
+- name: provision calico
+  ansible.builtin.include_role:
+    name: calico
+  vars:
+    calico_pods_cidr: "{{ k8s_pods_cidr }}"
+    calico_network_interface: "{{ k8s_network_interface }}"
+  when: k8s_cni_plugin is defined and
+    k8s_cni_plugin == 'calico'
+
+- name: provision cilium
+  ansible.builtin.include_role:
+    name: cilium
+  vars:
+    cilium_pods_cidr: "{{ k8s_pods_cidr }}"
+  when: k8s_cni_plugin is defined and
+    k8s_cni_plugin == 'cilium'

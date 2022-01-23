@@ -1,0 +1,6 @@
+---
+- name: ensure keepalived package is present
+  ansible.builtin.package:
+    name:
+      - keepalived
+    state: present

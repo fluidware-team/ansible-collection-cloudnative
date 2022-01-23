@@ -1,0 +1,117 @@
+---
+#- name: set rp_filter
+#  ansible.builtin.copy:
+#    content: |
+#      net.ipv4.conf.lxc*.rp_filter = 0
+#    dest: /etc/sysctl.d/99-override_cilium_rp_filter.conf
+#    mode: 0644
+#  register: override_cilium_rp_filter
+#
+#- name: restart systemd-sysctl
+#  ansible.builtin.systemd:
+#    state: restarted
+#    name: systemd-sysctl
+#  when: override_cilium_rp_filter is changed
+
+- name: check vars consistency
+  ansible.builtin.assert:
+    that:
+      - cilium_kube_proxy_replacement != 'strict' or cilium_k8s_api_server_ip is defined
+
+- name: check if cilium cli is present
+  ansible.builtin.stat:
+    path: /usr/local/bin/cilium
+  register: cilium_cli_stat
+
+- name: get cilium version
+  ansible.builtin.shell:
+    cmd: "/usr/local/bin/cilium version | grep '^cilium-cli' | awk '{print $2}'"
+  register: get_current_version
+  changed_when: false
+  ignore_errors: true
+  when:  cilium_cli_stat is defined and
+    cilium_cli_stat.stat is defined and
+    cilium_cli_stat.stat.exists
+
+- name: set current version as fact
+  ansible.builtin.set_fact:
+    cilium_cli_current_version: "{{ get_current_version.stdout }}"
+  when: get_current_version is succeeded
+    and get_current_version.stdout is defined
+
+- name: download and install cilium cli
+  block:
+    - name: create download tempdir
+      ansible.builtin.tempfile:
+        state: directory
+      register: create_tempdir
+    - name: debug
+      ansible.builtin.debug:
+        var: create_tempdir
+    - name: download cilium cli
+      block:
+        - name: download archive
+          ansible.builtin.get_url:
+            url: "{{ cilium_cli_asset_url }}"
+            dest: "{{ create_tempdir.path }}"
+            checksum: "sha256:{{ cilium_cli_sha256sum }}"
+          register: download_archive
+        - name: extract archive
+          ansible.builtin.unarchive:
+            src: "{{ download_archive.dest }}"
+            dest: "{{ create_tempdir.path }}"
+            remote_src: true
+        - name: copy cilium cli
+          ansible.builtin.copy:
+            src: "{{ create_tempdir.path }}/cilium"
+            dest: "/usr/local/bin/"
+            mode: 0755
+            remote_src: true
+
+      always:
+        - name: wipe download tempdir
+          ansible.builtin.file:
+            path: "{{ create_tempdir.path }}"
+            state: absent
+  when: cilium_cli_stat is undefined or
+    cilium_cli_stat.stat is undefined or
+    not cilium_cli_stat.stat.exists or (
+      cilium_cli_current_version is defined and
+      cilium_cli_current_version !=  cilium_cli_version
+    )
+
+- name: add cilium repo to helm
+  ansible.builtin.command: "/usr/local/bin/helm repo add cilium https://helm.cilium.io/"
+  changed_when: false
+  ignore_errors: true
+
+- name: check if cilium repo is installed
+  ansible.builtin.shell:
+    cmd: "/usr/local/bin/helm list -n {{ cilium_namespace }} | grep cilium"
+  register: helm_cilium_stat
+  changed_when: false
+  failed_when:
+    - helm_cilium_stat.rc > 1
+
+- name: Ensure .cilium directory exists.
+  ansible.builtin.file:
+    path: ~/.cilium
+    state: directory
+    mode: 0700
+
+- name: render helm cilium install/upgrade script
+  ansible.builtin.template:
+    src: helm_cilium.sh.j2
+    dest: ~/.cilium/helm_cilium
+    mode: 0750
+  register: helm_cilium_script_stat
+
+- name: install cilium with helm
+  ansible.builtin.command: ~/.cilium/helm_cilium install
+  when: not cilium_skip_install and helm_cilium_stat.rc == 1
+
+- name: upgrade cilium with helm
+  ansible.builtin.command: ~/.cilium/helm_cilium upgrade
+  when: not cilium_skip_install and
+    helm_cilium_stat.rc == 0 and
+    helm_cilium_script_stat is changed

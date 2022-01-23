@@ -1,0 +1,35 @@
+---
+- name: Download kubernetes-archive-keyring
+  ansible.builtin.get_url:
+    url: "{{ k8s_repo_key_url }}"
+    dest: "{{ k8s_keyrings_path }}"
+
+- name: Add kubernetes repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by={{ k8s_keyrings_path }}] https://apt.kubernetes.io/ kubernetes-xenial main"
+    state: present
+
+- name: ensure packages are present
+  ansible.builtin.package:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+    state: present
+
+- name: ensure ipvs packages are present if needed
+  ansible.builtin.package:
+    name:
+      - ipvsadm
+      - ipset
+    state: present
+  when: k8s_kube_proxy_use_ipvs
+
+- name: hold packages
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  with_items:
+      - kubelet
+      - kubeadm
+      - kubectl

@@ -1,0 +1,27 @@
+---
+cilium_version: v1.11.0
+cilium_kube_proxy_replacement: disabled # disabled | probe | strict
+cilium_restart_unmanaged_pods: true
+cilium_pods_cidr: 10.85.0.0/16
+
+cilium_namespace: kube-system
+
+# cilium cli
+cilium_cli_version: v0.10.0
+cilium_cli_arch: amd64
+cilium_cli_os: linux
+cilium_cli_sha256sum: 2a309542dc9504d3ee3583617fef98e5cb24cdb5e8578a52fa6584932bb2c46c
+cilium_cli_asset_url: "https://github.com/cilium/cilium-cli/releases/download/{{ cilium_cli_version  }}/cilium-{{ cilium_cli_os }}-{{ cilium_cli_arch }}.tar.gz"
+
+cilium_skip_install: false
+
+######################################################
+### cilium_k8s_api_server_port must be an IP
+# cilium_k8s_api_server_host: 1.2.3.4
+
+cilium_k8s_api_server_port: 6443
+
+######################################################
+### if you have multiple interfaces,
+### set here the one used for in-cluster communications
+# cilium_network_interface: eth1

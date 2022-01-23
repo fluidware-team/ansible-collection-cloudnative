@@ -1,0 +1,18 @@
+---
+- name: ensure calico config is valid
+  ansible.builtin.assert:
+    that: not (calico_ipip_enable and calico_vxlan_enable)
+    msg:
+      if calico_vxlan_enable is true calico_ipip_enable must be false
+
+- name: render calico manifest
+  ansible.builtin.template:
+    src: calico.yaml.j2
+    dest: ~/.kube/.calico.yaml
+    mode: 0644
+
+- name: Configure Calico networking.
+  ansible.builtin.command: >
+    kubectl apply -f ~/.kube/.calico.yaml
+  register: calico_result
+  changed_when: "'created' in calico_result.stdout"

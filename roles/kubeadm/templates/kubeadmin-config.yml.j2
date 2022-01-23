@@ -1,0 +1,34 @@
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: "{{ ansible_facts[k8s_network_interface]['ipv4']['address'] }}"
+{% if k8s_certificate_key is defined %}
+certificateKey: {{ k8s_certificate_key }}
+{% endif %}
+{% if k8s_without_kube_proxy %}
+skipPhases:
+  - addon/kube-proxy
+{% endif %}
+---
+apiVersion: kubeadm.k8s.io/v1beta3
+kind: ClusterConfiguration
+apiServer:
+{% if k8s_apiserver_cert_extra_sans | length > 0 %}
+  certSANs:
+{% for item in k8s_apiserver_cert_extra_sans %}
+    - {{ item }}
+{% endfor %}
+{% endif %}
+kubernetesVersion: "{{ k8s_kubernetes_version }}"
+controlPlaneEndpoint: "{{ k8s_control_plane_endpoint | default(ansible_facts[k8s_network_interface]['ipv4']['address']) }}"
+networking:
+  dnsDomain: {{ k8s_cluster_dnsdomain }}
+  serviceSubnet: "{{ k8s_services_cidr }}"
+  podSubnet: "{{ k8s_pods_cidr }}"
+{% if not k8s_without_kube_proxy %}
+---
+apiVersion: kubeproxy.config.k8s.io/v1alpha1
+kind: KubeProxyConfiguration
+mode: {{ 'ipvs' if k8s_kube_proxy_use_ipvs else 'iptables' }}
+{% endif %}

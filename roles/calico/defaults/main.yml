@@ -1,0 +1,6 @@
+---
+calico_ipip_enable: true
+calico_vxlan_enable: false
+
+calico_pods_cidr: 10.85.0.0/16
+calico_network_interface: eth0

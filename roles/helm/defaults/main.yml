@@ -1,0 +1,6 @@
+---
+helm_version: v3.7.2
+helm_arch: amd64
+helm_os: linux
+helm_sha256sum: 4ae30e48966aba5f807a4e140dad6736ee1a392940101e4d79ffb4ee86200a9e
+helm_asset_url: "https://get.helm.sh/helm-{{ helm_version  }}-{{ helm_os }}-{{ helm_arch }}.tar.gz"

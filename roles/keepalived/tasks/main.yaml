@@ -1,0 +1,28 @@
+---
+- name: validate variables
+  ansible.builtin.assert:
+    that:
+      - keepalived_interface is defined
+      - keepalived_peers is defined and keepalived_peers | type_debug == "list" and keepalived_peers | length > 1
+      - keepalived_virtual_ip is defined
+      - keepalived_password is defined
+
+- include_tasks: setup-RedHat.yml
+  when: ansible_os_family == 'RedHat'
+
+- include_tasks: setup-Debian.yml
+  when: ansible_os_family == 'Debian'
+
+- name: render keepalived conf
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    mode: 0600
+  register: keepalived_conf_tpl
+
+- name: restart keepalived service
+  ansible.builtin.systemd:
+    state: restarted
+    name: keepalived
+    enabled: yes
+  when: keepalived_conf_tpl is changed
